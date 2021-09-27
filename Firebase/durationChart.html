@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+</html>
+<head>
+	
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css">
+	<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+	<div id="loggedin">
+		<h3 class="m-1" id="user"></h3>
+		<button type="button" class="btn btn-link float-end" data-mdb-ripple-color="dark" onclick="logout()">Logout</button>
+		<button type="button" class="btn btn-link" data-mdb-ripple-color="dark"  id="home">Home</button>
+		<button type="button" class="btn btn-link" data-mdb-ripple-color="dark" id="numberChart">See this interval in Number Chart</button>
+		<script>
+			document.getElementById("numberChart").onclick = function () {
+				location.href = location.href.split("?")[1] ? "numberChart.html"+"?"+location.href.split("?")[1] : "numberChart.html";
+			};
+			
+			document.getElementById("home").onclick = function () {
+				location.href = "index.html";
+			};
+		</script>
+	</div>
+	<div id="notlogged">Redirrecting</div>
+	
+</head>
+<body>
+	<audio id="myAudio"></audio>
+	
+	<div class="container">
+		<canvas id="myChart"></canvas>
+	</div>
+	<!-- The core Firebase JS SDK is always required and must be listed first -->
+	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+
+	<!-- TODO: Add SDKs for Firebase products that you want to use
+		 https://firebase.google.com/docs/web/setup#available-libraries -->
+	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-analytics.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/8.10/firebase-storage.js"></script>
+	<script>
+		// Your web app's Firebase configuration
+	  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+	  const firebaseConfig = {
+		apiKey: "AIzaSyCaPBmolfBAriSlW8mBJG1_Qv1q2pLzwos",
+		authDomain: "test-33b33.firebaseapp.com",
+		databaseURL: "https://test-33b33-default-rtdb.europe-west1.firebasedatabase.app",
+		projectId: "test-33b33",
+		storageBucket: "test-33b33.appspot.com",
+		messagingSenderId: "754583052587",
+		appId: "1:754583052587:web:5ab024ed1e3b8c8068656e",
+		measurementId: "G-CVP2JJ01XY"
+	  };
+	  // Initialize Firebase
+	  if (!firebase.apps.length) {
+			firebase.initializeApp(firebaseConfig);
+		}
+	  firebase.analytics();
+	  const storage=firebase.storage();
+	</script>
+	<script src="index.js"></script>
+	
+</body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.5.1/chart.min.js"></script>
+
+<script>
+	function chart(){
+	const url=new URL(window.location.href)
+	const date=url.searchParams.get("date")?.split("-")
+	const timeUn=url.searchParams?.get("timeUnit") ?? "years"
+	durationValues(timeUn,date,(obj)=>{
+		let title="Duration of anomalies per "+obj.timeUnit
+		let strDate=""
+		if(obj.timeUnit!="years"){
+			for(let i=0; i<5; i++){
+				if(!date[i]) break
+				if(date[i].length<2)strDate+="0"
+				strDate+=date[i]
+				if(i<2)strDate+="-"
+				if(i==2)strDate+=" "
+				if(i>2)strDate+=":"
+			}
+			title+=" in "+strDate.substring(0,strDate.length-1)
+		}
+		let anomaliesTime="seconds"
+		for(i of Object.values(obj.chart)){
+			if(i/60>=2) 
+				anomaliesTime="minutes"
+			if(i/3600>=2){
+				anomaliesTime="hours"
+				break
+			}
+		}
+		jQuery(function(){
+		const ctx = document.getElementById('myChart').getContext('2d');
+		const myChart = new Chart(ctx, {
+			type: 'bar',
+			data: {
+				labels: Object.keys(obj.chart),
+				datasets: [{
+					label: 'Duration of anomalies',
+					data: anomaliesTime=="seconds" ? Object.values(obj.chart):anomaliesTime=="minutes" ? Object.values(obj.chart).map(v=>v/60):Object.values(obj.chart).map(v=>v/3600),
+					backgroundColor: [
+						 'rgba(255, 99, 132, 0.2)'
+					],
+					borderColor: [
+						 'rgba(255, 99, 132, 0.2)'
+					],
+					borderWidth: 1,
+					fill: "origin"
+				}]
+			},
+			options: {
+				scales: {
+					y: {
+						beginAtZero: true,
+						ticks: {
+							stepSize: 1
+						},
+						title:{
+							text:"Anomalies ("+anomaliesTime+")",
+							display:true,
+							font:{
+								size:14
+							}
+						}
+					},
+					x:{
+						title:{
+							text:obj.timeUnit.charAt(0).toUpperCase()+obj.timeUnit.slice(1),
+							display:true,
+							font:{
+								size:14
+							}
+						}
+					}
+					
+				},
+				plugins: {
+					title: {
+						display: true,
+						text: title,
+						font:{
+							size:20
+						}
+					},
+					tooltip:{
+						displayColors: false
+					},
+					legend:{
+						display: false
+					}
+					
+				}
+				
+			}
+		});
+		$("#myChart").click(
+			function(event){
+				const activepoints=myChart.getElementsAtEventForMode(event,'nearest', { intersect: true }, true)
+				if(activepoints.length>0){
+					const clickedIndex= activepoints[0].index
+					let label=myChart.data.labels[clickedIndex]
+					const value=myChart.data.datasets[0].data[clickedIndex]
+					if(obj.timeUnit!="seconds"){
+						if(obj.timeUnit=="years") {
+							window.location.href="durationChart.html?timeUnit="+obj.nextTimeUnit+"&date="+label
+						}else{
+							date.push(label)
+							window.location.href="durationChart.html?timeUnit="+obj.nextTimeUnit+"&date="+date.join("-")
+					}}
+				}else{
+				alert("Touch the bars to narrow the scope")
+				}
+					
+			}
+		)
+		});
+	})
+	}
+	chart()
+</script>
+</html>
